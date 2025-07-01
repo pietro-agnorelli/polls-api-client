@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <title>Client Sondaggi</title>
+  <style>
+    body {
+        font-family: Arial, sans-serif;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+        background-color: #f5f5f5;
+    }
+
+    h1, h2, h3 {
+        color: #333;
+        margin-bottom: 15px;
+    }
+
+    input {
+        width: 100%;
+        padding: 8px;
+        margin: 5px 0;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        box-sizing: border-box;
+    }
+
+    button {
+        background-color: #2196F3;
+        color: white;
+        padding: 8px 15px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        margin: 5px;
+    }
+
+    button:hover {
+        opacity: 0.9;
+    }
+
+    .hidden {
+        display: none;
+    }
+
+    #loginForm, #registrationForm, #createPollForm {
+      background: white;
+      padding: 30px;
+      border-radius: 12px;
+      margin: 25px auto;
+      max-width: 450px;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.08);
+    }
+
+    #loginForm h2, #registrationForm h2, #createPollForm h3 {
+      margin: 0 0 25px 0;
+      padding-bottom: 15px;
+      border-bottom: 2px solid #eee;
+      color: #2196F3;
+      font-size: 24px;
+    }
+
+    input[type="text"],
+    input[type="password"],
+    input[type="email"] {
+      width: 100%;
+      padding: 12px 15px;
+      margin-bottom: 15px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 15px;
+      transition: all 0.2s;
+    }
+
+    input[type="text"]:focus,
+    input[type="password"]:focus,
+    input[type="email"]:focus {
+      border-color: #2196F3;
+      box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
+      outline: none;
+    }
+
+    #loginForm button,
+    #registrationForm button {
+      width: 100%;
+      padding: 12px;
+      font-size: 16px;
+      margin-top: 10px;
+      background-color: #2196F3;
+      transition: background-color 0.2s;
+    }
+
+    #loginForm button:hover,
+    #registrationForm button:hover {
+      background-color: #1976D2;
+    }
+
+    #authButtons {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      margin: 20px 0;
+    }
+
+    #authButtons button {
+      min-width: 120px;
+      font-weight: 500;
+    }
+
+    #pollQuestion {
+      font-size: 16px;
+      margin-bottom: 20px;
+    }
+
+    .choice-group {
+      margin: 12px 0;
+    }
+
+    .choice-group input {
+      margin-bottom: 0;
+    }
+
+    ::placeholder {
+      color: #aaa;
+    }
+
+    .poll {
+        background: white;
+        padding: 15px;
+        margin: 10px 0;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .choice-option {
+        margin: 8px 0;
+    }
+
+    .btn-vote {
+        background-color: #4CAF50;
+    }
+
+    .btn-results {
+        background-color: #607D8B;
+    }
+
+    .btn-delete {
+        background-color: #f44336;
+    }
+
+    .choice-group {
+        display: flex;
+        gap: 10px;
+        margin: 5px 0;
+    }
+
+    .choiceInput {
+        flex: 1;
+    }
+
+    .btn-remove-choice {
+        background-color: #f44336;
+        padding: 8px;
+        width: 30px;
+        height: 30px;
+    }
+
+    .poll-meta {
+        color: #666;
+        font-size: 0.9em;
+        margin: 5px 0;
+    }
+  </style>
+</head>
+<body>
+<h1>Sistema Sondaggi</h1>
+<div id="userArea" class="hidden">
+  <button onclick="logout()" class="auth-btn">Logout</button>
+</div>
+<div id="authButtons">
+  <button onclick="showLogin()" class="auth-btn">Login</button>
+  <button onclick="showRegistration()" class="auth-btn">Registrati</button>
+</div>
+<!-- Form di Login -->
+<div id="loginForm">
+  <h2>Login</h2>
+  <input type="text" id="username" placeholder="Username">
+  <input type="password" id="password" placeholder="Password">
+  <button onclick="login()">Login</button>
+</div>
+
+<!-- Form di Registrazione -->
+<div id="registrationForm" class="hidden">
+  <h2>Registrazione</h2>
+  <input type="text" id="regUsername" placeholder="Username">
+  <input type="email" id="regEmail" placeholder="Email">
+  <input type="password" id="regPassword" placeholder="Password">
+  <input type="password" id="regPassword2" placeholder="Conferma Password">
+  <input type="text" id="regBio" placeholder="Bio">
+  <input type="text" id="regGender" placeholder="Genere">
+  <button onclick="register()">Registrati</button>
+</div>
+
+<!-- Area Sondaggi -->
+<div id="pollsArea">
+  <h2>Sondaggi</h2>
+  <div id="createPollForm">
+    <h3>Crea Nuovo Sondaggio</h3>
+    <input type="text" id="pollQuestion" placeholder="Domanda">
+    <div id="choicesContainer">
+
+    </div>
+    <button onclick="addChoice()">Aggiungi Opzione</button>
+    <button onclick="createPoll()">Crea Sondaggio</button>
+  </div>
+  <div id="pollsList"></div>
+</div>
+
+<script>
+  const API_BASE_URL = 'https://polls-api-production-15f2.up.railway.app/api/v1';
+  let token = null;
+  window.onload = function() {
+    if (token) {
+      showAuthenticatedUI();
+    } else {
+      showUnauthenticatedUI();
+    }
+    loadPolls(); // Carica i sondaggi per tutti
+  };
+
+  function showAuthenticatedUI() {
+    document.getElementById('loginForm').classList.add('hidden');
+    document.getElementById('registrationForm').classList.add('hidden');
+    document.getElementById('createPollForm').classList.remove('hidden');
+    document.getElementById('authButtons').classList.add('hidden');
+    document.getElementById('userArea').classList.remove('hidden');
+  }
+
+  function showUnauthenticatedUI() {
+    document.getElementById('createPollForm').classList.add('hidden');
+    document.getElementById('authButtons').classList.remove('hidden');
+    document.getElementById('userArea').classList.add('hidden');
+    document.getElementById('loginForm').classList.add('hidden');
+    document.getElementById('registrationForm').classList.add('hidden');
+  }
+
+  function showRegistration() {
+    document.getElementById('loginForm').classList.add('hidden');
+    document.getElementById('registrationForm').classList.remove('hidden');
+  }
+
+  function showLogin() {
+    document.getElementById('loginForm').classList.remove('hidden');
+    document.getElementById('registrationForm').classList.add('hidden');
+  }
+
+  async function register() {
+    const data = {
+      username: document.getElementById('regUsername').value,
+      email: document.getElementById('regEmail').value,
+      password: document.getElementById('regPassword').value,
+      password2: document.getElementById('regPassword2').value,
+      bio: document.getElementById('regBio').value,
+      gender: document.getElementById('regGender').value
+    };
+
+    //console.log(data);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/register/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify(data)
+      });
+      const result = await response.json();
+      // Debug
+      /*console.log('Status:', response.status);
+
+      console.log('Risposta:', result);*/
+
+      if (response.ok) {
+        token = result.token;
+        showAuthenticatedUI();
+        loadPolls();
+      } else {
+        alert('Errore durante la registrazione: ' + JSON.stringify(result));
+      }
+    } catch (error) {
+      alert('Errore di rete: ' + error);
+    }
+  }
+
+  async function login() {
+    const data = {
+      username: document.getElementById('username').value,
+      password: document.getElementById('password').value
+    };
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/login/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+      });
+      const result = await response.json();
+      if (response.ok) {
+        token = result.token;
+        showAuthenticatedUI();
+        loadPolls();
+      } else {
+        alert('Errore di login: ' + JSON.stringify(result));
+      }
+    } catch (error) {
+      alert('Errore di rete: ' + error);
+    }
+  }
+
+  function logout() {
+    token = null;
+    document.getElementById('username').value = '';
+    document.getElementById('password').value = '';
+    showUnauthenticatedUI();
+  }
+
+  async function loadPolls() {
+    try {
+      const response = await fetch(`${API_BASE_URL}/polls/`);
+      const polls = await response.json();
+      displayPolls(polls);
+    } catch (error) {
+      alert('Errore nel caricamento dei sondaggi: ' + error);
+    }
+  }
+
+  function displayPolls(polls) {
+    const pollsList = document.getElementById('pollsList');
+    pollsList.innerHTML = '';
+
+    polls.forEach(poll => {
+      const pollDiv = document.createElement('div');
+      pollDiv.className = 'poll';
+      let choicesHtml = '<p>Nessuna scelta disponibile</p>';
+
+      if (poll.choices && poll.choices.length > 0) {
+        choicesHtml = `
+                <form class="choices-form">
+                    ${poll.choices.map(choice => `
+                        <div class="choice-option">
+                            <input type="radio"
+                                   id="choice_${poll.id}_${choice.id}"
+                                   name="poll_${poll.id}"
+                                   value="${choice.id}"
+                                   ${!token ? 'disabled' : ''}>
+                            <label for="choice_${poll.id}_${choice.id}">
+                                ${choice.choice_text}
+                            </label>
+                        </div>
+                    `).join('')}
+                </form>
+            `;
+      }
+
+      const isCreator = token && poll.creator === document.getElementById('username').value;
+
+      pollDiv.innerHTML = `
+            <div class="poll-header">
+                <h3>${poll.question}</h3>
+                <p class="poll-meta">Creato da: ${poll.creator || 'Anonimo'}</p>
+            </div>
+            <div class="poll-choices">
+                ${choicesHtml}
+            </div>
+            <div class="poll-actions">
+                ${token ?
+              `<button onclick="vote(${poll.id})" class="btn-vote">Vota</button>` :
+              `<button onclick="showLogin()" class="btn-vote">Accedi per votare</button>`}
+                <button onclick="showResults(${poll.id})" class="btn-results">Risultati</button>
+                ${isCreator ?
+              `<button onclick="deletePoll(${poll.id})" class="btn-delete">Elimina</button>` :
+              ''}
+            </div>
+        `;
+      pollsList.appendChild(pollDiv);
+    });
+  }
+
+  function addChoice() {
+    const container = document.getElementById('choicesContainer');
+    const choiceDiv = document.createElement('div');
+    choiceDiv.className = 'choice-group';
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'choiceInput';
+    input.placeholder = `Opzione ${container.children.length + 1}`;
+
+    const removeButton = document.createElement('button');
+    removeButton.type = 'button';
+    removeButton.className = 'btn-remove-choice';
+    removeButton.textContent = '×';
+    removeButton.onclick = function() {
+      if (container.children.length > 2) {
+        container.removeChild(choiceDiv);
+      } else {
+        alert('Sono necessarie almeno due opzioni');
+      }
+    };
+
+    choiceDiv.appendChild(input);
+    choiceDiv.appendChild(removeButton);
+    container.appendChild(choiceDiv);
+  }
+
+  async function createPoll() {
+    const question = document.getElementById('pollQuestion').value;
+    const choiceInputs = document.getElementsByClassName('choiceInput');
+    const choices = Array.from(choiceInputs)
+            .map(input => input.value.trim())
+            .filter(value => value !== '');
+
+    if (choices.length < 2) {
+      alert('Inserisci almeno due opzioni valide');
+      return;
+    }
+
+    const data = {
+      question: question,
+      choices: choices.map(choice => ({ choice_text: choice }))
+    };
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/polls/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Token ${token}`
+        },
+        body: JSON.stringify(data)
+      });
+      if (response.ok) {
+
+        loadPolls();
+        document.getElementById('pollQuestion').value = '';
+        document.getElementById('choicesContainer').innerHTML = '';
+        // Reinserisce le due opzioni iniziali
+        addChoice();
+        addChoice();
+      } else {
+        alert('Errore nella creazione del sondaggio');
+      }
+    } catch (error) {
+      alert('Errore di rete: ' + error);
+    }
+  }
+
+  async function deletePoll(pollId) {
+    if (!confirm('Sei sicuro di voler eliminare questo sondaggio?')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/polls/${pollId}/`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Token ${token}`
+        }
+      });
+
+      if (response.ok) {
+        alert('Sondaggio eliminato con successo');
+        loadPolls();
+      } else {
+        const error = await response.json();
+        alert('Impossibile eliminare il sondaggio: ' + JSON.stringify(error));
+      }
+    } catch (error) {
+      alert('Errore di rete: ' + error);
+    }
+  }
+
+  async function vote(pollId) {
+    const selected = document.querySelector(`input[name="poll_${pollId}"]:checked`);
+    if (!selected) {
+      alert('Seleziona un\'opzione');
+      return;
+    }
+
+    const data = {
+      poll: pollId,
+      choice: selected.value
+    };
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/polls/${pollId}/vote/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Token ${token}`
+        },
+        body: JSON.stringify(data)
+      });
+      if (response.ok) {
+        alert('Voto registrato con successo!');
+        showResults(pollId);
+      } else {
+        alert('Errore durante il voto');
+      }
+    } catch (error) {
+      alert('Errore di rete: ' + error);
+    }
+  }
+
+  async function showResults(pollId) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/polls/${pollId}/results/`);
+      const results = await response.json();
+      alert(`Risultati:\n${JSON.stringify(results.results, null, 2)}`);
+    } catch (error) {
+      alert('Errore nel caricamento dei risultati: ' + error);
+    }
+  }
+</script>
+</body>
+</html>
